@@ -6,7 +6,8 @@ Django's :py:class:`~django.core.cache.backends.redis.RedisCacheClient` turns th
 ``password``, ``socket_timeout``, ...) mean the same to :py:mod:`redis.asyncio`, so the async
 pools start out with the very same ones. A few name redis-py classes that come in a sync and an
 async variant, though: ``pool_class``, ``parser_class``, ``connection_class``, ``retry``. The
-cache setting ``ASYNC_OPTIONS`` overrides keys for the async pools only.
+cache setting ``ASYNC_OPTIONS`` overrides keys for the async pools only, and a sync class or
+object that would still reach them is an error (see :py:mod:`~action0.django_acache.validation`).
 """
 
 from collections.abc import Mapping
@@ -17,6 +18,8 @@ import redis.asyncio
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.module_loading import import_string
 from redis.asyncio.connection import DefaultParser
+
+from .validation import check_async_options
 
 AsyncPoolClass: TypeAlias = type[redis.asyncio.ConnectionPool]
 
@@ -46,7 +49,8 @@ def async_pool_config(
     :param pool_options: the keyword arguments Django built for its sync pools
     :param overrides: the cache's ``ASYNC_OPTIONS``
     :return: the pool class and the keyword arguments for its ``from_url()``
-    :raises ImproperlyConfigured: if ``overrides`` contains a key that must be shared
+    :raises ImproperlyConfigured: if ``overrides`` contains a key that must be shared, or if a
+        sync redis-py class or object would reach the async pools
     """
     if shared := sorted(SHARED_ONLY & overrides.keys()):
         raise ImproperlyConfigured(
@@ -56,6 +60,7 @@ def async_pool_config(
     options = {**pool_options, "parser_class": DefaultParser, **overrides}
     pool_class = _load(options.pop("pool_class", redis.asyncio.ConnectionPool))
     options["parser_class"] = _load(options["parser_class"])
+    check_async_options({**options, "pool_class": pool_class}, overrides)
     return pool_class, options
 
 

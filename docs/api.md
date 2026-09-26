@@ -39,3 +39,8 @@ from action0.django_acache import (
 .. automodule:: action0.django_acache.options
    :members:
 ```
+
+```{eval-rst}
+.. automodule:: action0.django_acache.validation
+   :members: check_async_options, RULES
+```
