@@ -5,7 +5,7 @@ talk to the server through {py:mod}`redis.asyncio` instead of running the sync
 methods in a worker thread.
 
 ```shell
-uv add action0-django-acache    # not on PyPI yet — install from GitHub for now
+pip install action0-django-acache    # or: uv add action0-django-acache
 ```
 
 Swap the backend in your settings:
