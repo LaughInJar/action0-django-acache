@@ -106,10 +106,21 @@ CACHES = {
 |--------------------|-------------------------------------------|----------------------------------------------------------|
 | `pool_class`       | default `redis.ConnectionPool`            | default `redis.asyncio.ConnectionPool`, never the sync one |
 | `parser_class`     | default redis-py's sync parser            | default redis-py's async parser, never the sync one      |
-| `connection_class`, `retry`, ... | as given                    | as in `OPTIONS` — override them if they are sync classes |
+| `connection_class`, `retry` | as given                         | as in `OPTIONS`, but a sync class or `Retry` is an error — override it |
 | `serializer`       | as given                                  | always the same as the sync side; not allowed in `ASYNC_OPTIONS` |
+| everything else    | as given                                  | as in `OPTIONS`                                          |
 
 As in `OPTIONS`, `pool_class` and `parser_class` may be dotted import paths.
+
+A sync class or object that would reach the async pools, whether inherited from
+`OPTIONS` or given in `ASYNC_OPTIONS`, raises `ImproperlyConfigured` as soon as
+the cache is first used — by a sync method, too. Some of them would otherwise
+only fail on the first async call; a sync `Retry` would even be accepted
+silently and simply never retry. The message names the fix:
+
+```text
+django.core.exceptions.ImproperlyConfigured: OPTIONS['retry'] is a redis.retry.Retry, which the async side cannot use: set ASYNC_OPTIONS['retry'] to a redis.asyncio.retry.Retry
+```
 
 ## Pools
 

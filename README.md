@@ -62,7 +62,9 @@ The sync methods are Django's, untouched, and both sides write the same keys
 with the same serializer: sync and async code share one cache.
 
 A few redis-py options come in a sync and an async variant. `ASYNC_OPTIONS`
-overrides `OPTIONS` for the async side only:
+overrides `OPTIONS` for the async side only — and a sync class or `Retry` that
+would still reach the async side is an `ImproperlyConfigured` error naming the
+fix:
 
 ```python
 CACHES = {

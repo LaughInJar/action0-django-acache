@@ -2,6 +2,10 @@ import unittest
 from unittest import mock
 
 import redis.asyncio
+from django.core.exceptions import ImproperlyConfigured
+from redis.asyncio.retry import Retry as AsyncRetry
+from redis.backoff import NoBackoff
+from redis.retry import Retry as SyncRetry
 
 from action0.django_acache import registry
 
@@ -59,6 +63,19 @@ class AGetClientTestCase(unittest.IsolatedAsyncioTestCase):
         with mock.patch("random.randint", return_value=2):
             self.assertEqual(await host(write=False), "third")
 
+    async def test_async_retry(self) -> None:
+        """
+        Test that the async pools get the Retry of ASYNC_OPTIONS, and work with it.
+        """
+        retry = AsyncRetry(NoBackoff(), 3)
+        cache = make_cache(
+            OPTIONS={"retry": SyncRetry(NoBackoff(), 3)}, ASYNC_OPTIONS={"retry": retry}
+        )
+        client = await cache._cache.aget_client()
+        self.assertIs(client.connection_pool.connection_kwargs["retry"], retry)
+        await cache.aset("key", 1)
+        self.assertEqual(await cache.aget("key"), 1)
+
     async def test_single_server_reads(self) -> None:
         """
         Test that with a single server reads use it, too.
@@ -86,3 +103,12 @@ class ConfigurationTestCase(unittest.TestCase):
         self.assertEqual(pool.connection_kwargs["socket_timeout"], 2)
         self.assertEqual(cache._cache._async_pool_options["socket_timeout"], 3)
         self.assertIs(cache._cache._async_pool_class, redis.asyncio.ConnectionPool)
+
+    def test_sync_object_rejected(self) -> None:
+        """
+        Test that a sync object in OPTIONS without an async override fails when the cache is
+        first used — also by a sync method.
+        """
+        cache = make_cache(OPTIONS={"retry": SyncRetry(NoBackoff(), 3)})
+        with self.assertRaisesRegex(ImproperlyConfigured, r"set ASYNC_OPTIONS\['retry'\]"):
+            cache.get("key")
